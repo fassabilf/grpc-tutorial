@@ -4,11 +4,13 @@ pub mod services {
 
 use services::{
     payment_service_client::PaymentServiceClient,
-    PaymentRequest,
+    transaction_service_client::TransactionServiceClient,
+    PaymentRequest, TransactionRequest,
 };
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Payment section (unary)
     let mut client = PaymentServiceClient::connect("http://[::1]:50051").await?;
     let request = tonic::Request::new(PaymentRequest {
         user_id: "user_123".to_string(),
@@ -17,6 +19,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let response = client.process_payment(request).await?;
     println!("RESPONSE={:?}", response.into_inner());
+
+    // Transaction section (server streaming)
+    let mut transaction_client = TransactionServiceClient::connect("http://[::1]:50051").await?;
+    let request = tonic::Request::new(TransactionRequest {
+        user_id: "user_123".to_string(),
+    });
+
+    let mut stream = transaction_client.get_transaction_history(request).await?.into_inner();
+    while let Some(transaction) = stream.message().await? {
+        println!("Transaction: {:?}", transaction);
+    }
 
     Ok(())
 }
